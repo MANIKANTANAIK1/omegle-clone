@@ -1,72 +1,64 @@
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
-const { v4: uuidV4 } = require("uuid");
-
+const express = require('express');
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
+const { v4: uuidV4 } = require('uuid');
+const path = require('path');
 
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, 'public')));
 
-app.get("/", (req, res) => {
+// Serve the client HTML on any path (room)
+app.get('/:room', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/index.html'));
+});
+
+// Redirect root to a unique room
+app.get('/', (req, res) => {
   res.redirect(`/${uuidV4()}`);
 });
 
-app.get("/:room", (req, res) => {
-  res.sendFile(__dirname + "/public/index.html");
-});
+io.on('connection', socket => {
+  let currentRoom = null;
 
-const rooms = {}; // roomId -> [userIds]
+  socket.on('join-room', (roomId, userId) => {
+    if (currentRoom) {
+      socket.leave(currentRoom);
+    }
 
-io.on("connection", socket => {
-  socket.on("join-room", (roomId, userId) => {
+    currentRoom = roomId;
     socket.join(roomId);
 
-    // Track room participants
-    if (!rooms[roomId]) rooms[roomId] = [];
-    rooms[roomId].push(userId);
+    // Notify others in room of new user
+    socket.to(roomId).emit('user-connected', userId);
 
-    socket.to(roomId).emit("user-connected", userId);
-
-    socket.on("disconnect", () => {
-      socket.to(roomId).emit("user-disconnected", userId);
-
-      // Remove user from room list
-      if (rooms[roomId]) {
-        rooms[roomId] = rooms[roomId].filter(id => id !== userId);
-        if (rooms[roomId].length === 0) delete rooms[roomId];
+    // Handle disconnect inside this room
+    socket.on('disconnect', () => {
+      if (currentRoom) {
+        socket.to(currentRoom).emit('user-disconnected', userId);
       }
     });
+  });
 
-    // Chat message relay
-    socket.on("chat-message", (message, userId) => {
-      socket.to(roomId).emit("chat-message", message, userId);
-    });
+  socket.on('next-user', (oldRoomId, userId) => {
+    // Leave old room
+    socket.leave(oldRoomId);
 
-    // Next button: Leave current room, create new room for this user
-    socket.on("next-user", (currentRoom, userId) => {
-      // Leave current room
-      socket.leave(currentRoom);
+    // Join a new unique room
+    const newRoomId = uuidV4();
+    currentRoom = newRoomId;
+    socket.join(newRoomId);
 
-      // Remove user from old room tracking
-      if (rooms[currentRoom]) {
-        rooms[currentRoom] = rooms[currentRoom].filter(id => id !== userId);
-        if (rooms[currentRoom].length === 0) delete rooms[currentRoom];
-      }
+    // Tell client to update URL and reset state
+    socket.emit('new-room', newRoomId);
+  });
 
-      // Create new roomId and join
-      const newRoomId = uuidV4();
-      socket.join(newRoomId);
-      rooms[newRoomId] = [userId];
-
-      // Notify user about new room
-      socket.emit("new-room", newRoomId);
-    });
+  // Relay chat messages to others in same room
+  socket.on('chat-message', (message, userId) => {
+    if (currentRoom) {
+      socket.to(currentRoom).emit('chat-message', message, userId);
+    }
   });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
-});
+http.listen(PORT, () => console.log(`Server running on port ${PORT}`));

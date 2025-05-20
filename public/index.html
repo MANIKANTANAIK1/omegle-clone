@@ -1,130 +1,130 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Omegle Clone Video Chat</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #121212;
-      color: #eee;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Omegle Clone Video Chat</title>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #121212;
+    color: #eee;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
 
-    .container {
-      max-width: 900px;
-      width: 100%;
-      text-align: center;
-    }
+  .container {
+    max-width: 900px;
+    width: 100%;
+    text-align: center;
+  }
 
-    h1 {
-      margin-bottom: 10px;
-    }
+  h1 {
+    margin-bottom: 10px;
+  }
 
-    #videos {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 15px;
-    }
+  #videos {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
 
-    video {
-      width: 45%;
-      border-radius: 10px;
-      background: #000;
-      box-shadow: 0 0 8px #00ccff;
-    }
+  video {
+    width: 45%;
+    border-radius: 10px;
+    background: #000;
+    box-shadow: 0 0 8px #00ccff;
+  }
 
-    #chat-container {
-      background: #222;
-      border-radius: 10px;
-      max-width: 600px;
-      margin: 0 auto 15px;
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      height: 300px;
-    }
+  #chat-container {
+    background: #222;
+    border-radius: 10px;
+    max-width: 600px;
+    margin: 0 auto 15px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    height: 300px;
+  }
 
-    #chat-window {
-      flex: 1;
-      overflow-y: auto;
-      padding: 5px;
-      border: 1px solid #444;
-      margin-bottom: 10px;
-      background: #111;
-      border-radius: 6px;
-      font-size: 14px;
-      color: #ddd;
-      word-wrap: break-word;
-    }
+  #chat-window {
+    flex: 1;
+    overflow-y: auto;
+    padding: 5px;
+    border: 1px solid #444;
+    margin-bottom: 10px;
+    background: #111;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #ddd;
+    word-wrap: break-word;
+  }
 
-    #chat-window .message {
-      margin-bottom: 5px;
-    }
+  #chat-window .message {
+    margin-bottom: 5px;
+  }
 
-    #chat-window .message.you {
-      color: #00ccff;
-    }
+  #chat-window .message.you {
+    color: #00ccff;
+  }
 
-    #chat-window .message.other {
-      color: #ffaa00;
-    }
+  #chat-window .message.other {
+    color: #ffaa00;
+  }
 
-    #chat-form {
-      display: flex;
-      gap: 5px;
-    }
+  #chat-form {
+    display: flex;
+    gap: 5px;
+  }
 
-    #chat-input {
-      flex: 1;
-      padding: 8px;
-      border-radius: 5px;
-      border: none;
-      font-size: 14px;
-      outline: none;
-    }
+  #chat-input {
+    flex: 1;
+    padding: 8px;
+    border-radius: 5px;
+    border: none;
+    font-size: 14px;
+    outline: none;
+  }
 
-    #chat-input:focus {
-      border: 1px solid #00ccff;
-    }
+  #chat-input:focus {
+    border: 1px solid #00ccff;
+  }
 
-    #chat-form button {
-      padding: 8px 15px;
-      border: none;
-      background: #00ccff;
-      color: #111;
-      font-weight: bold;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: background 0.3s ease;
-    }
+  #chat-form button {
+    padding: 8px 15px;
+    border: none;
+    background: #00ccff;
+    color: #111;
+    font-weight: bold;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
 
-    #chat-form button:hover {
-      background: #0099cc;
-    }
+  #chat-form button:hover {
+    background: #0099cc;
+  }
 
-    #next-btn {
-      padding: 10px 20px;
-      border: none;
-      background: #ffaa00;
-      color: #111;
-      font-weight: bold;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: background 0.3s ease;
-      margin-top: 10px;
-    }
+  #next-btn {
+    padding: 10px 20px;
+    border: none;
+    background: #ffaa00;
+    color: #111;
+    font-weight: bold;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    margin-top: 10px;
+  }
 
-    #next-btn:hover {
-      background: #cc8800;
-    }
-  </style>
+  #next-btn:hover {
+    background: #cc8800;
+  }
+</style>
 </head>
 <body>
   <div class="container">
@@ -145,10 +145,8 @@
     <button id="next-btn">Next</button>
   </div>
 
-  <!-- Load Socket.io and PeerJS -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
-
   <script>
     const socket = io();
     const myVideo = document.getElementById("my-video");
@@ -158,13 +156,13 @@
     const chatInput = document.getElementById("chat-input");
     const nextBtn = document.getElementById("next-btn");
 
-    const peers = {};
+    let peers = {};
     let myStream;
     let myPeer;
     let myPeerId;
     let currentRoom = window.location.pathname.slice(1);
 
-    // For chat message saving in sessionStorage
+    // Chat persistence via sessionStorage
     const CHAT_STORAGE_KEY = `chat_messages_${currentRoom}`;
     let chatMessages = JSON.parse(sessionStorage.getItem(CHAT_STORAGE_KEY) || "[]");
 
@@ -176,7 +174,6 @@
       chatWindow.appendChild(div);
       chatWindow.scrollTop = chatWindow.scrollHeight;
 
-      // Save to chat history only for "you" and "other"
       chatMessages.push({ text, sender });
       sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatMessages));
     }
@@ -189,6 +186,10 @@
     }
 
     async function startVideoCall() {
+      if (myPeer) {
+        myPeer.destroy();
+      }
+
       myPeer = new Peer(undefined, {
         config: {
           iceServers: [
@@ -203,11 +204,13 @@
         }
       });
 
-      myStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-      myVideo.srcObject = myStream;
+      try {
+        myStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        myVideo.srcObject = myStream;
+      } catch (err) {
+        alert("Error accessing webcam/microphone: " + err);
+        return;
+      }
 
       myPeer.on("call", call => {
         call.answer(myStream);
@@ -238,18 +241,20 @@
       });
 
       socket.on("new-room", newRoomId => {
+        // Change URL and reset UI
         window.history.pushState(null, null, "/" + newRoomId);
         currentRoom = newRoomId;
 
+        // Clear chat history
         sessionStorage.removeItem(CHAT_STORAGE_KEY);
         chatMessages = [];
         chatWindow.innerHTML = "";
 
+        // Clear remote video and peers
         Object.values(peers).forEach(call => call.close());
-        for (const key in peers) delete peers[key];
+        peers = {};
         userVideo.srcObject = null;
 
-        myPeer.destroy();
         startVideoCall();
       });
     }
@@ -259,6 +264,8 @@
     }
 
     function connectToNewUser(userId, stream) {
+      if (peers[userId]) return; // Already connected
+
       const call = myPeer.call(userId, stream);
       call.on("stream", remoteStream => {
         userVideo.srcObject = remoteStream;
