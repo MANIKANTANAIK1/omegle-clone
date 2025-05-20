@@ -1,64 +1,61 @@
 const express = require('express');
-const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http);
-const { v4: uuidV4 } = require('uuid');
+const http = require('http');
+const { Server } = require('socket.io');
 const path = require('path');
 
-app.use(express.static(path.join(__dirname, 'public')));
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
-// Serve the client HTML on any path (room)
-app.get('/:room', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public/index.html'));
-});
-
-// Redirect root to a unique room
 app.get('/', (req, res) => {
-  res.redirect(`/${uuidV4()}`);
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-io.on('connection', socket => {
-  let currentRoom = null;
+let waitingSocket = null;
 
-  socket.on('join-room', (roomId, userId) => {
-    if (currentRoom) {
-      socket.leave(currentRoom);
-    }
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
 
-    currentRoom = roomId;
-    socket.join(roomId);
+  if (waitingSocket) {
+    // Pair current socket with waitingSocket
+    waitingSocket.partner = socket;
+    socket.partner = waitingSocket;
 
-    // Notify others in room of new user
-    socket.to(roomId).emit('user-connected', userId);
+    waitingSocket.emit('partner-found');
+    socket.emit('partner-found');
 
-    // Handle disconnect inside this room
-    socket.on('disconnect', () => {
-      if (currentRoom) {
-        socket.to(currentRoom).emit('user-disconnected', userId);
-      }
-    });
+    waitingSocket = null;
+  } else {
+    waitingSocket = socket;
+  }
+
+  socket.on('offer', (data) => {
+    if (socket.partner) socket.partner.emit('offer', data);
   });
 
-  socket.on('next-user', (oldRoomId, userId) => {
-    // Leave old room
-    socket.leave(oldRoomId);
-
-    // Join a new unique room
-    const newRoomId = uuidV4();
-    currentRoom = newRoomId;
-    socket.join(newRoomId);
-
-    // Tell client to update URL and reset state
-    socket.emit('new-room', newRoomId);
+  socket.on('answer', (data) => {
+    if (socket.partner) socket.partner.emit('answer', data);
   });
 
-  // Relay chat messages to others in same room
-  socket.on('chat-message', (message, userId) => {
-    if (currentRoom) {
-      socket.to(currentRoom).emit('chat-message', message, userId);
+  socket.on('ice-candidate', (data) => {
+    if (socket.partner) socket.partner.emit('ice-candidate', data);
+  });
+
+  socket.on('chat', (data) => {
+    if (socket.partner) socket.partner.emit('chat', data);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+    if (waitingSocket === socket) waitingSocket = null;
+    if (socket.partner) {
+      socket.partner.emit('partner-disconnected');
+      socket.partner.partner = null;
     }
   });
 });
 
-const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const PORT = 3000;
+server.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});

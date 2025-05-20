@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>OMEGLE CLONE</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #FFE6C9;
+      color: blueviolet;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+    }
+
+    h1 {
+      margin: 10px 0;
+    }
+
+    #videos {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    video {
+      width: 320px;
+      height: 240px;
+      background: black;
+      border: 2px solid #EEEEEE;
+      border-radius: 10px;
+    }
+
+    #controls {
+      margin-top: 10px;
+    }
+
+    #chat {
+      display: flex;
+      flex-direction: column;
+      height: 200px;
+      width: 660px;
+      background-color: #2b2b2b;
+      border: 1px solid #444;
+      margin-top: 15px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    #chat-messages {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+    }
+
+    #chat-input {
+      display: flex;
+      border-top: 1px solid #444;
+    }
+
+    #message {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      outline: none;
+      background: #1e1e1e;
+      color: white;
+    }
+
+    #send {
+      background: blueviolet;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+    }
+
+    button {
+      padding: 8px 16px;
+      color: white;
+      background-color: blueviolet;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      margin: 0 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Omegle Clone</h1>
+
+  <div id="videos">
+    <video id="localVideo" autoplay muted></video>
+    <video id="remoteVideo" autoplay></video>
+  </div>
+
+  <div id="controls">
+    <button id="next">Next</button>
+  </div>
+
+
+
+  <div id="chat">
+    <div id="chat-messages"></div>
+    <div id="chat-input">
+      <input type="text" id="message" placeholder="Type a message..." />
+      <button id="send">Send</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+    const nextBtn = document.getElementById('next');
+    const messageInput = document.getElementById('message');
+    const sendBtn = document.getElementById('send');
+    const chatMessages = document.getElementById('chat-messages');
+
+    let peerConnection;
+    const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+    async function startCall() {
+      peerConnection = new RTCPeerConnection(config);
+
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+      localVideo.srcObject = stream;
+
+      peerConnection.ontrack = ({ streams: [stream] }) => {
+        remoteVideo.srcObject = stream;
+      };
+
+      peerConnection.onicecandidate = ({ candidate }) => {
+        if (candidate) {
+          socket.emit('ice-candidate', { candidate });
+        }
+      };
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      socket.emit('offer', { offer });
+    }
+
+    socket.on('offer', async ({ offer }) => {
+      peerConnection = new RTCPeerConnection(config);
+
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+      localVideo.srcObject = stream;
+
+      peerConnection.ontrack = ({ streams: [stream] }) => {
+        remoteVideo.srcObject = stream;
+      };
+
+      peerConnection.onicecandidate = ({ candidate }) => {
+        if (candidate) {
+          socket.emit('ice-candidate', { candidate });
+        }
+      };
+
+      await peerConnection.setRemoteDescription(offer);
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+      socket.emit('answer', { answer });
+    });
+
+    socket.on('answer', async ({ answer }) => {
+      await peerConnection.setRemoteDescription(answer);
+    });
+
+    socket.on('ice-candidate', async ({ candidate }) => {
+      if (peerConnection) {
+        await peerConnection.addIceCandidate(candidate);
+      }
+    });
+
+    nextBtn.onclick = () => {
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+        remoteVideo.srcObject = null;
+      }
+      socket.disconnect();
+      location.reload();
+    };
+
+    sendBtn.onclick = () => {
+      const msg = messageInput.value;
+      if (msg.trim() !== '') {
+        appendMessage('You', msg);
+        socket.emit('chat', msg);
+        messageInput.value = '';
+      }
+    };
+
+    socket.on('chat', msg => {
+      appendMessage('Stranger', msg);
+    });
+
+    function appendMessage(sender, msg) {
+      const div = document.createElement('div');
+      div.textContent = `${sender}: ${msg}`;
+      chatMessages.appendChild(div);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    startCall();
+    
+  </script>
+</body>
+</html>
