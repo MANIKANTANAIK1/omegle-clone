@@ -1,77 +1,289 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Omegle-Style Video Chat</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Omegle Clone Video Chat</title>
   <style>
-    video { width: 45%; margin: 10px; border: 2px solid black; }
-    #nextBtn { margin-top: 20px; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #eee;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      max-width: 900px;
+      width: 100%;
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    #videos {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    video {
+      width: 45%;
+      border-radius: 10px;
+      background: #000;
+      box-shadow: 0 0 8px #00ccff;
+    }
+
+    #chat-container {
+      background: #222;
+      border-radius: 10px;
+      max-width: 600px;
+      margin: 0 auto 15px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      height: 300px;
+    }
+
+    #chat-window {
+      flex: 1;
+      overflow-y: auto;
+      padding: 5px;
+      border: 1px solid #444;
+      margin-bottom: 10px;
+      background: #111;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #ddd;
+      word-wrap: break-word;
+    }
+
+    #chat-window .message {
+      margin-bottom: 5px;
+    }
+
+    #chat-window .message.you {
+      color: #00ccff;
+    }
+
+    #chat-window .message.other {
+      color: #ffaa00;
+    }
+
+    #chat-form {
+      display: flex;
+      gap: 5px;
+    }
+
+    #chat-input {
+      flex: 1;
+      padding: 8px;
+      border-radius: 5px;
+      border: none;
+      font-size: 14px;
+      outline: none;
+    }
+
+    #chat-input:focus {
+      border: 1px solid #00ccff;
+    }
+
+    #chat-form button {
+      padding: 8px 15px;
+      border: none;
+      background: #00ccff;
+      color: #111;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    #chat-form button:hover {
+      background: #0099cc;
+    }
+
+    #next-btn {
+      padding: 10px 20px;
+      border: none;
+      background: #ffaa00;
+      color: #111;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      margin-top: 10px;
+    }
+
+    #next-btn:hover {
+      background: #cc8800;
+    }
   </style>
 </head>
 <body>
-  <h2>Talk to a stranger!</h2>
-  <video id="local" autoplay muted playsinline></video>
-  <video id="remote" autoplay playsinline></video>
-  <br>
-  <button id="nextBtn" onclick="location.reload()">Next Stranger</button>
+  <div class="container">
+    <h1>Omegle Clone</h1>
+    <div id="videos">
+      <video id="my-video" autoplay muted playsinline></video>
+      <video id="user-video" autoplay playsinline></video>
+    </div>
 
+    <div id="chat-container">
+      <div id="chat-window"></div>
+      <form id="chat-form">
+        <input id="chat-input" autocomplete="off" placeholder="Type message..." />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+
+    <button id="next-btn">Next</button>
+  </div>
+
+  <!-- Load Socket.io and PeerJS -->
   <script src="/socket.io/socket.io.js"></script>
+  <script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
+
   <script>
     const socket = io();
-    const localVideo = document.getElementById('local');
-    const remoteVideo = document.getElementById('remote');
+    const myVideo = document.getElementById("my-video");
+    const userVideo = document.getElementById("user-video");
+    const chatWindow = document.getElementById("chat-window");
+    const chatForm = document.getElementById("chat-form");
+    const chatInput = document.getElementById("chat-input");
+    const nextBtn = document.getElementById("next-btn");
 
-    let pc;
-    let room;
+    const peers = {};
+    let myStream;
+    let myPeer;
+    let myPeerId;
+    let currentRoom = window.location.pathname.slice(1);
 
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
-      localVideo.srcObject = stream;
+    // For chat message saving in sessionStorage
+    const CHAT_STORAGE_KEY = `chat_messages_${currentRoom}`;
+    let chatMessages = JSON.parse(sessionStorage.getItem(CHAT_STORAGE_KEY) || "[]");
 
-      socket.on('partner-found', async (roomName) => {
-        room = roomName;
-        pc = createPeerConnection(stream);
+    function addMessageToChat(text, sender = "other") {
+      const div = document.createElement("div");
+      div.classList.add("message");
+      div.classList.add(sender === "you" ? "you" : "other");
+      div.textContent = text;
+      chatWindow.appendChild(div);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
 
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        socket.emit('signal', { sdp: offer, room });
+      // Save to chat history only for "you" and "other"
+      chatMessages.push({ text, sender });
+      sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatMessages));
+    }
+
+    function restoreChat() {
+      chatWindow.innerHTML = "";
+      chatMessages.forEach(({ text, sender }) => {
+        addMessageToChat(text, sender);
       });
+    }
 
-      socket.on('signal', async data => {
-        if (data.sdp) {
-          await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-          if (data.sdp.type === 'offer') {
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            socket.emit('signal', { sdp: answer, room });
-          }
-        } else if (data.candidate) {
-          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+    async function startVideoCall() {
+      myPeer = new Peer(undefined, {
+        config: {
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            {
+              urls: "turn:numb.viagenie.ca",
+              credential: "muazkh",
+              username: "webrtc@live.com"
+            }
+          ]
         }
       });
 
-      socket.on('partner-disconnected', () => {
-        alert("Partner disconnected. Click 'Next' to meet someone new.");
-        location.reload();
+      myStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
       });
+      myVideo.srcObject = myStream;
+
+      myPeer.on("call", call => {
+        call.answer(myStream);
+        call.on("stream", remoteStream => {
+          userVideo.srcObject = remoteStream;
+        });
+      });
+
+      myPeer.on("open", id => {
+        myPeerId = id;
+        joinRoom(currentRoom, id);
+      });
+
+      socket.on("user-connected", userId => {
+        connectToNewUser(userId, myStream);
+      });
+
+      socket.on("user-disconnected", userId => {
+        if (peers[userId]) {
+          peers[userId].close();
+          delete peers[userId];
+          userVideo.srcObject = null;
+        }
+      });
+
+      socket.on("chat-message", (message, userId) => {
+        addMessageToChat(`Stranger: ${message}`, "other");
+      });
+
+      socket.on("new-room", newRoomId => {
+        window.history.pushState(null, null, "/" + newRoomId);
+        currentRoom = newRoomId;
+
+        sessionStorage.removeItem(CHAT_STORAGE_KEY);
+        chatMessages = [];
+        chatWindow.innerHTML = "";
+
+        Object.values(peers).forEach(call => call.close());
+        for (const key in peers) delete peers[key];
+        userVideo.srcObject = null;
+
+        myPeer.destroy();
+        startVideoCall();
+      });
+    }
+
+    function joinRoom(roomId, userId) {
+      socket.emit("join-room", roomId, userId);
+    }
+
+    function connectToNewUser(userId, stream) {
+      const call = myPeer.call(userId, stream);
+      call.on("stream", remoteStream => {
+        userVideo.srcObject = remoteStream;
+      });
+      call.on("close", () => {
+        userVideo.srcObject = null;
+      });
+      peers[userId] = call;
+    }
+
+    chatForm.addEventListener("submit", e => {
+      e.preventDefault();
+      const message = chatInput.value.trim();
+      if (!message) return;
+      addMessageToChat(`You: ${message}`, "you");
+      socket.emit("chat-message", message, myPeerId);
+      chatInput.value = "";
     });
 
-    function createPeerConnection(stream) {
-      const peer = new RTCPeerConnection();
+    nextBtn.addEventListener("click", () => {
+      socket.emit("next-user", currentRoom, myPeerId);
+    });
 
-      stream.getTracks().forEach(track => peer.addTrack(track, stream));
-
-      peer.ontrack = event => {
-        remoteVideo.srcObject = event.streams[0];
-      };
-
-      peer.onicecandidate = event => {
-        if (event.candidate) {
-          socket.emit('signal', { candidate: event.candidate, room });
-        }
-      };
-
-      return peer;
-    }
+    restoreChat();
+    startVideoCall();
   </script>
 </body>
 </html>
-
